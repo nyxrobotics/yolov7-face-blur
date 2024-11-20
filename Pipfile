@@ -1,0 +1,13 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+ultralytics = ">=8.1.14"
+opencv-python = "*"
+
+[requires]
+python_version = "3.8"
+
+[dev-packages]

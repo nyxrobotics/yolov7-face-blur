@@ -1,3 +1,6 @@
+#!/usr/bin/env pipenv-shebang
+# -*- coding:utf-8 -*-
+
 #Object Crop Using YOLOv7
 import argparse
 import time
