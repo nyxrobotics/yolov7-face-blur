@@ -43,7 +43,7 @@ def detect(save_img=False):
     model = attempt_load(str(weights_path), map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
-    
+
     # if trace:
     #     model = TracedModel(model, device, opt.img_size)
 
@@ -126,12 +126,29 @@ def detect(save_img=False):
 
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
-                    
-                    #Add Object Blurring Code
-                    #..................................................................
-                    crop_obj = im0[int(xyxy[1]):int(xyxy[3]),int(xyxy[0]):int(xyxy[2])]
-                    blur = cv2.blur(crop_obj,(blurratio,blurratio))
-                    im0[int(xyxy[1]):int(xyxy[3]),int(xyxy[0]):int(xyxy[2])] = blur
+                    # Extract only the first four values for coordinates
+                    if len(xyxy) < 4:
+                        print(f"Unexpected bounding box format: {xyxy}. Skipping.")
+                        continue
+
+                    # Use the first four values for bounding box
+                    x1, y1, x2, y2 = map(int, xyxy[:4])
+
+                    # Validate the cropping region
+                    if x1 < 0 or y1 < 0 or x2 > im0.shape[1] or y2 > im0.shape[0] or x1 >= x2 or y1 >= y2:
+                        print(f"Invalid crop area: ({x1}, {y1}, {x2}, {y2}). Skipping.")
+                        continue
+
+                    crop_obj = im0[y1:y2, x1:x2]
+
+                    try:
+                        # Apply blurring to the cropped object
+                        blur = cv2.blur(crop_obj, (blurratio, blurratio))
+                        im0[y1:y2, x1:x2] = blur
+                    except Exception as e:
+                        print(f"Error while blurring object: {e}")
+                        continue
+
                     #..................................................................
                     
                     if save_txt:  # Write to file
