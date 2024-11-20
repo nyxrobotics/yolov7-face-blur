@@ -4,3 +4,5 @@ Pipfile.lock
 models/__pycache__/
 
 utils/__pycache__/
+
+weights/

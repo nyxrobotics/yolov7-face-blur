@@ -36,10 +36,14 @@ def detect(save_img=False):
     half = False
 
     # Load model
-    model = attempt_load(weights, map_location=device)  # load FP32 model
+    weights_dir = "weights"  # Directory for weights
+    weights_path = Path(weights_dir) / weights[0]
+    if not weights_path.exists():
+        raise FileNotFoundError(f"Model file '{weights_path}' does not exist. Please download it first.")
+    model = attempt_load(str(weights_path), map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
-
+    
     # if trace:
     #     model = TracedModel(model, device, opt.img_size)
 
