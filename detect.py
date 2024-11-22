@@ -4,10 +4,12 @@
 # Object Crop Using YOLOv7
 import argparse
 import os
+import subprocess
 import time
 from pathlib import Path
 
 import cv2
+import requests
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
@@ -30,13 +32,58 @@ from utils.torch_utils import load_classifier
 from utils.torch_utils import select_device
 from utils.torch_utils import time_synchronized
 
+WEIGHT_URLS = {
+    "yolov7-lite-t.pt": "https://drive.google.com/uc?export=download&id=1HNXd9EdS-BJ4dk7t1xJDFfr1JIHjd5yb",
+    "yolov7-lite-s.pt": "https://drive.google.com/uc?export=download&id=1MIC5vD4zqRLF_uEZHzjW_f-G3TsfaOAf",
+    "yolov7-tiny.pt": "https://drive.google.com/uc?export=download&id=1Mona-I4PclJr5mjX1qb8dgDeMpYyBcwM",
+    "yolov7s-face.pt": "https://drive.google.com/uc?export=download&id=1_ZjnNF_JKHVlq41EgEqMoGE2TtQ3SYmZ",
+    "yolov7-face.pt": "https://drive.google.com/uc?export=download&id=1oIaGXFd4goyBvB1mYDK24GLof53H9ZYo",
+    "yolov7-face-tta.pt": "https://drive.google.com/uc?export=download&id=1oIaGXFd4goyBvB1mYDK24GLof53H9ZYo",
+    "yolov7-w6-face.pt": "https://drive.google.com/uc?export=download&id=1U_kH7Xa_9-2RK2hnyvsyMLKdYB0h4MJS",
+    "yolov7-w6-face-tta.pt": "https://drive.google.com/uc?export=download&id=1U_kH7Xa_9-2RK2hnyvsyMLKdYB0h4MJS"
+}
+
+
+def download_weights(weight_name, save_dir="weights"):
+    """Download weights using gdown for Google Drive files."""
+    if weight_name not in WEIGHT_URLS:
+        raise ValueError(
+            f"Weight '{weight_name}' not found in predefined list.")
+
+    url = WEIGHT_URLS[weight_name]
+    save_path = Path(save_dir) / weight_name
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if save_path.exists():
+        print(f"Weight file '{save_path}' already exists.")
+        return save_path
+
+    print(f"Downloading {weight_name} from Google Drive using gdown...")
+
+    try:
+        subprocess.run(
+            [
+                "gdown", "--id", url.split("id=")[-1], "-O", str(save_path)
+            ],
+            check=True
+        )
+        print(f"Downloaded {weight_name} to {save_path}.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred while downloading {weight_name}: {e}")
+        raise RuntimeError(
+            f"Failed to download {weight_name} from Google Drive.")
+
+    return save_path
+
 
 def detect(save_img=False):
-    source, weights, view_img, save_txt, imgsz, trace, blurratio, hidedetarea = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace, opt.blurratio, opt.hidedetarea
+    source, weights, view_img, save_txt, imgsz, trace, blurratio, hidedetarea, weights_dir = \
+        opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace, opt.blurratio, opt.hidedetarea, opt.weights_dir
+
     save_img = not opt.nosave and not source.endswith(
         '.txt')  # save inference images
-    webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
-        ('rtsp://', 'rtmp://', 'http://', 'https://'))
+    webcam = source.isnumeric() or source.endswith('.txt') or source.lower(
+    ).startswith(('rtsp://', 'rtmp://', 'http://', 'https://'))
 
     # Directories
     save_dir = Path(increment_path(Path(opt.project) / opt.name,
@@ -47,22 +94,14 @@ def detect(save_img=False):
     # Initialize
     set_logging()
     device = select_device(opt.device)
-    # half = device.type != 'cpu'  # half precision only supported on CUDA
     half = False
 
     # Load model
-    weights_dir = "weights"  # Directory for weights
     weights_path = Path(weights_dir) / weights[0]
-    if not weights_path.exists():
-        raise FileNotFoundError(
-            f"Model file '{weights_path}' does not exist. Please download it first.")
     model = attempt_load(
         str(weights_path), map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
-
-    # if trace:
-    #     model = TracedModel(model, device, opt.img_size)
 
     if half:
         model.half()  # to FP16
@@ -234,7 +273,9 @@ def detect(save_img=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str,
-                        default='yolov7.pt', help='model.pt path(s)')
+                        default='yolov7-w6-face-tta.pt', help='model.pt path(s)')
+    parser.add_argument('--weights-dir', type=str, default='weights',
+                        help='directory containing model weights')
     # file/folder, 0 for webcam
     parser.add_argument('--source', type=str,
                         default='inference/images', help='source')
@@ -276,12 +317,22 @@ if __name__ == '__main__':
                         help='Hide Detected Area')
     opt = parser.parse_args()
     print(opt)
-    # check_requirements(exclude=('pycocotools', 'thop'))
 
+    # Check and download weights if necessary
+    for weight in opt.weights:
+        weight_path = Path(opt.weights_dir) / weight
+        if not weight_path.exists():
+            print(
+                f"Model file '{weight_path}' not found. Attempting to download...")
+            download_weights(weight, save_dir=opt.weights_dir)
+
+    # Proceed with detection or model update
     with torch.no_grad():
-        if opt.update:  # update all models (to fix SourceChangeWarning)
-            for opt.weights in ['yolov7.pt']:
+        if opt.update:  # Update specified models to fix SourceChangeWarning
+            for weight in opt.weights:
+                weight_path = Path(opt.weights_dir) / weight
+                print(f"Updating model: {weight_path}")
                 detect()
-                strip_optimizer(opt.weights)
+                strip_optimizer(str(weight_path))
         else:
             detect()
