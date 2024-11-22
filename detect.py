@@ -3,13 +3,11 @@
 
 # Object Crop Using YOLOv7
 import argparse
-import os
 import subprocess
 import time
 from pathlib import Path
 
 import cv2
-import requests
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
@@ -20,7 +18,6 @@ from utils.datasets import LoadStreams
 from utils.general import apply_classifier
 from utils.general import check_img_size
 from utils.general import check_imshow
-from utils.general import check_requirements
 from utils.general import increment_path
 from utils.general import non_max_suppression
 from utils.general import scale_coords
