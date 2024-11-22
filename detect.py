@@ -160,11 +160,11 @@ def detect(save_img=False):
                     # Use the first four values for bounding box
                     x1, y1, x2, y2 = map(int, xyxy[:4])
 
-                    # Validate the cropping region
-                    if x1 < 0 or y1 < 0 or x2 > im0.shape[1] or y2 > im0.shape[0] or x1 >= x2 or y1 >= y2:
-                        print(
-                            f"Invalid crop area: ({x1}, {y1}, {x2}, {y2}). Skipping.")
-                        continue
+                    # Replace negative values with 0
+                    x1 = min(max(0, x1), im0.shape[1])
+                    y1 = min(max(0, y1), im0.shape[0])
+                    x2 = min(max(x1, x2), im0.shape[1])
+                    y2 = min(max(y1, y2), im0.shape[0])
 
                     crop_obj = im0[y1:y2, x1:x2]
 
@@ -241,7 +241,7 @@ if __name__ == '__main__':
     parser.add_argument('--img-size', type=int, default=640,
                         help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float,
-                        default=0.125, help='object confidence threshold')
+                        default=0.2, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float,
                         default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='',
